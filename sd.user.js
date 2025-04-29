@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         superhivemarket.com Downloader
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @description  Добавляет кнопки загрузки из Google Sheets
 // @author       Axelaredz
 // @homepageURL    https://github.com/axelaredz/tampermonkey
@@ -121,17 +121,14 @@
             margin-bottom: .5rem;
         `;
 
-        // Кнопка чата
         btnGroup.appendChild(createButton('🗨️ Чат', CONFIG.CHAT_URL, false, true));
 
-        // Актуальная версия
         if (hasActual) {
             btnGroup.appendChild(createButton('⬇ Актуальная', productData.actual));
         } else {
             btnGroup.appendChild(createButton('✚ Добавить', null, true));
         }
 
-        // Слитая версия
         if (hasLeaked) {
             btnGroup.appendChild(createButton('⬇ Слитая', productData.leaked, false, false, true));
         } else {
@@ -142,13 +139,16 @@
         priceBox.prepend(block);
     };
 
-    // Запуск скрипта
     loadData((data) => {
-        const observer = new MutationObserver(() => {
+        const checkAndCreateBlock = () => {
             const priceBox = document.querySelector('.action-wish');
             if (priceBox && !priceBox.querySelector('.download-block')) {
                 createDownloadBlock(data);
             }
+        };
+
+        const observer = new MutationObserver(() => {
+            checkAndCreateBlock();
         });
 
         observer.observe(document.body, {
@@ -156,9 +156,8 @@
             subtree: true
         });
 
-        // Проверка при первоначальной загрузке
-        if (document.querySelector('.action-wish')) {
-            createDownloadBlock(data);
-        }
+        setInterval(checkAndCreateBlock, 2000);
+
+        checkAndCreateBlock();
     });
 })();
