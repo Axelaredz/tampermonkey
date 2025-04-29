@@ -5,8 +5,8 @@
 // @description  Добавляет кнопки загрузки из Google Sheets
 // @author       Axelaredz
 // @homepageURL    https://github.com/axelaredz/tampermonkey
-// @updateURL      https://raw.githubusercontent.com/axelaredz/tampermonkey/main/dist/sd.user.js
-// @downloadURL    https://raw.githubusercontent.com/axelaredz/tampermonkey/main/dist/sd.user.js
+// @updateURL      https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
+// @downloadURL    https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
 // @supportURL     https://github.com/axelaredz/tampermonkey/issues
 // @match        https://superhivemarket.com/products/*
 // @grant        GM_xmlhttpRequest
