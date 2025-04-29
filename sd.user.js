@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         superhivemarket.com Downloader
 // @namespace    http://tampermonkey.net/
-// @version      3.2
+// @version      3.3
 // @description  Добавляет кнопки загрузки из Google Sheets
 // @author       Axelaredz
 // @homepageURL    https://github.com/axelaredz/tampermonkey
@@ -93,7 +93,7 @@
 
     const createDownloadBlock = (data) => {
         const priceBox = document.querySelector('.action-wish');
-        if (!priceBox || priceBox.querySelector('.btn-group')) return;
+        if (!priceBox || priceBox.querySelector('.download-block')) return;
 
         const productSlug = getProductSlug();
         if (!productSlug) return;
@@ -144,11 +144,21 @@
 
     // Запуск скрипта
     loadData((data) => {
-        const checkExist = setInterval(() => {
-            if (document.querySelector('.action-wish')) {
-                clearInterval(checkExist);
+        const observer = new MutationObserver(() => {
+            const priceBox = document.querySelector('.action-wish');
+            if (priceBox && !priceBox.querySelector('.download-block')) {
                 createDownloadBlock(data);
             }
-        }, 1000);
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // Проверка при первоначальной загрузке
+        if (document.querySelector('.action-wish')) {
+            createDownloadBlock(data);
+        }
     });
 })();
