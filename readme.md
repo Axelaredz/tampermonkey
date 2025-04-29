@@ -1,1 +1,1 @@
-Установить https://raw.githubusercontent.com/axelaredz/tampermonkey/main/dist/sd.user.js
+Установить https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
