@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gumroad Product Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.2
 // @description  Добавляет кнопки загрузки на страницы Gumroad
 // @author       Axelaredz
 // @homepageURL    https://github.com/axelaredz/tampermonkey
@@ -71,19 +71,14 @@
         });
     };
 
-    const createButton = (text, url, isAddButton = false, isFirst = false, isLast = false) => {
+    const createButton = (text, url, isAddButton = false) => {
         const btn = document.createElement('a');
-        btn.className = 'btn';
+        btn.className = 'accent button gumroad-download-button';
         btn.textContent = text;
         btn.target = '_blank';
 
         btn.style.cssText = `
-            position: relative;
-            padding: 10px 5px;
-            color: white !important;
-            text-decoration: none !important;
-            transition: all 0.2s ease;
-            ${isAddButton ? 'background: linear-gradient(0deg, rgb(104, 0, 240), #00000080);' : 'background: linear-gradient(0deg,#6800f0,#ff6b00);'}
+            ${isAddButton ? 'background: linear-gradient(0deg,rgb(54 169 174),rgb(233 238 251));' : 'background: linear-gradient(0deg, rgb(54 169 174), rgb(54 169 174));'}
         `;
 
         if (url) btn.href = url;
@@ -91,9 +86,9 @@
         return btn;
     };
 
-    const createDownloadBlock = (data) => {
-        const infoBox = document.querySelector('.info');
-        if (!infoBox || infoBox.querySelector('.download-block')) return;
+    const createDownloadContainer = (data) => {
+        const infoBox = document.querySelector('.rich-text');
+        if (!infoBox || infoBox.querySelector('.gumroad-download-container')) return;
 
         const productSlug = getProductSlug();
         if (!productSlug) return;
@@ -102,56 +97,59 @@
         const hasActual = !!productData.actual;
         const hasLeaked = !!productData.leaked;
 
-        const block = document.createElement('div');
-        block.className = 'download-block';
+        // Создаем контейнер для всех элементов
+        const container = document.createElement('div');
+        container.className = 'gumroad-download-container';
 
+        // Создаем заголовок
         const title = document.createElement('div');
         title.textContent = 'Скачать';
         title.style.cssText = `
-            margin-bottom: 10px;
             font-weight: bold;
             text-align: center;
+            font-size: 18px;
+            margin-bottom: .5rem;
         `;
-        block.appendChild(title);
 
-        const btnGroup = document.createElement('div');
-        btnGroup.className = 'btn-group';
-        btnGroup.style.cssText = `
+        // Создаем контейнер для кнопок
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.cssText = `
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            margin-bottom: .5rem;
             gap: 8px;
         `;
 
-        btnGroup.appendChild(createButton('🗨️ Чат', CONFIG.CHAT_URL, false, true));
+        // Создаем кнопки
+        const chatButton = createButton('🗨️ Чат', CONFIG.CHAT_URL);
+        const actualButton = hasActual
+            ? createButton('⬇ Актуальная', productData.actual)
+            : createButton('✚ Добавить', null, true);
+        const leakedButton = hasLeaked
+            ? createButton('⬇ Слитая', productData.leaked)
+            : createButton('✚ Добавить', null, true);
 
-        if (hasActual) {
-            btnGroup.appendChild(createButton('⬇ Актуальная', productData.actual));
-        } else {
-            btnGroup.appendChild(createButton('✚ Добавить', null, true));
-        }
+        // Добавляем элементы в контейнер
+        buttonsContainer.appendChild(chatButton);
+        buttonsContainer.appendChild(actualButton);
+        buttonsContainer.appendChild(leakedButton);
+        container.appendChild(title);
+        container.appendChild(buttonsContainer);
 
-        if (hasLeaked) {
-            btnGroup.appendChild(createButton('⬇ Слитая', productData.leaked, false, false, true));
-        } else {
-            btnGroup.appendChild(createButton('✚ Добавить', null, true, false, true));
-        }
-
-        block.appendChild(btnGroup);
-        infoBox.prepend(block);
+        // Добавляем контейнер в infoBox
+        infoBox.prepend(container);
     };
 
     loadData((data) => {
-        const checkAndCreateBlock = () => {
-            const infoBox = document.querySelector('.info');
-            if (infoBox && !infoBox.querySelector('.download-block')) {
-                createDownloadBlock(data);
+        const checkAndCreateContainer = () => {
+            const infoBox = document.querySelector('.rich-text');
+            if (infoBox && !infoBox.querySelector('.gumroad-download-container')) {
+                createDownloadContainer(data);
             }
         };
 
         const observer = new MutationObserver(() => {
-            checkAndCreateBlock();
+            checkAndCreateContainer();
         });
 
         observer.observe(document.body, {
@@ -159,8 +157,6 @@
             subtree: true
         });
 
-        setInterval(checkAndCreateBlock, 2000);
-
-        checkAndCreateBlock();
+        checkAndCreateContainer();
     });
 })();
