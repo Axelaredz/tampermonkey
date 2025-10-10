@@ -1,20 +1,24 @@
 // ==UserScript==
 // @name         superhivemarket.com Downloader
 // @namespace    http://tampermonkey.net/
-// @version      3.4
+// @version      3.5
 // @description  Добавляет кнопки загрузки из Google Sheets
 // @author       Axelaredz
-// @homepageURL    https://github.com/axelaredz/tampermonkey
-// @updateURL      https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
-// @downloadURL    https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
-// @supportURL     https://github.com/axelaredz/tampermonkey/issues
+// @homepageURL  https://github.com/axelaredz/tampermonkey
+// @updateURL    https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
+// @downloadURL  https://github.com/Axelaredz/tampermonkey/raw/refs/heads/main/sd.user.js
+// @supportURL   https://github.com/axelaredz/tampermonkey/issues
 // @match        https://superhivemarket.com/products/*
 // @grant        GM_xmlhttpRequest
 // @connect      docs.google.com
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
+
+    // Защита от повторного запуска
+    if (window.superhiveDownloaderLoaded) return;
+    window.superhiveDownloaderLoaded = true;
 
     const CONFIG = {
         DATA_TABLE_URL: 'https://docs.google.com/spreadsheets/d/1cTMmx-0l7ZSp09v3EOR_ryYY5NjtQP_Qu5HMzOaSyF8/gviz/tq?tqx=out:csv&sheet=Products',
@@ -22,34 +26,92 @@
         EDIT_TABLE_URL: 'https://docs.google.com/spreadsheets/d/1cTMmx-0l7ZSp09v3EOR_ryYY5NjtQP_Qu5HMzOaSyF8/edit'
     };
 
+    // === Вспомогательные функции ===
+
+    const injectStyles = () => {
+        if (document.getElementById('superhive-downloader-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'superhive-downloader-styles';
+        style.textContent = `
+            .download-block {
+                margin-bottom: 1rem;
+            }
+            .download-block-title {
+                margin-bottom: 10px;
+                font-weight: bold;
+                text-align: center;
+                font-size: 1.1em;
+            }
+            .download-btn-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .download-btn {
+                display: inline-block;
+                padding: 8px 10px;
+                color: white !important;
+                text-decoration: none !important;
+                text-align: center;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+                font-size: 0.9em;
+                min-width: 100px;
+                box-sizing: border-box;
+            }
+            .download-btn.download {
+                background: linear-gradient(0deg, #6800f0, #ff6b00);
+            }
+            .download-btn.add {
+                background: linear-gradient(0deg, rgb(104, 0, 240), #00000080);
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
     const getProductSlug = () => {
-        return window.location.pathname
-            .split('/')
-            .filter(segment => segment)
-            .pop()
-            .replace(/\/$/, '')
-            .toLowerCase();
+        const path = window.location.pathname;
+        const segments = path.split('/').filter(Boolean);
+        // Ожидаем: /products/some-slug
+        if (segments.length === 2 && segments[0] === 'products') {
+            return segments[1].toLowerCase();
+        }
+        // Или: /some-slug (если сайт так делает)
+        if (segments.length === 1 && segments[0] !== 'products') {
+            return segments[0].toLowerCase();
+        }
+        return null;
     };
 
     const parseCSV = (csv) => {
+        const lines = csv.trim().split(/\r?\n/);
         const result = {};
-        const rows = csv.split('\n');
-        const regex = /(?:,|\n|^)("(?:(?:"")*[^"]*)*"|[^",\n]*|(?:\n|$))/g;
 
-        rows.forEach(row => {
-            const cells = [];
-            let match;
-            while ((match = regex.exec(row)) !== null) {
-                cells.push(match[1].replace(/^"|"$/g, ''));
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const fields = [];
+            let insideQuotes = false;
+            let current = '';
+
+            for (let j = 0; j < line.length; j++) {
+                const char = line[j];
+                if (char === '"') {
+                    insideQuotes = !insideQuotes;
+                } else if (char === ',' && !insideQuotes) {
+                    fields.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
             }
+            fields.push(current);
 
-            if (cells.length >= 3) {
-                const slug = cells[0].trim()
-                    .replace(/\/$/, '')
-                    .toLowerCase();
-
-                const actual = cells[1].trim();
-                const leaked = cells[2].trim();
+            if (fields.length >= 3) {
+                const slug = fields[0].replace(/^"|"$/g, '').trim().toLowerCase();
+                const actual = fields[1].replace(/^"|"$/g, '').trim();
+                const leaked = fields[2].replace(/^"|"$/g, '').trim();
 
                 if (slug) {
                     result[slug] = {
@@ -58,7 +120,7 @@
                     };
                 }
             }
-        });
+        }
         return result;
     };
 
@@ -66,28 +128,33 @@
         GM_xmlhttpRequest({
             method: 'GET',
             url: CONFIG.DATA_TABLE_URL,
-            onload: (response) => callback(parseCSV(response.responseText)),
-            onerror: () => console.error('Ошибка загрузки данных')
+            onload: (response) => {
+                try {
+                    callback(parseCSV(response.responseText));
+                } catch (e) {
+                    console.error('Ошибка парсинга CSV:', e);
+                }
+            },
+            onerror: () => console.error('Ошибка загрузки данных из Google Sheets')
         });
     };
 
-    const createButton = (text, url, isAddButton = false, isFirst = false, isLast = false) => {
+    const createButton = (text, url, isAddButton = false) => {
         const btn = document.createElement('a');
-        btn.className = 'btn';
+        btn.className = 'download-btn ' + (isAddButton ? 'add' : 'download');
         btn.textContent = text;
         btn.target = '_blank';
+        btn.rel = 'noopener noreferrer';
 
-        btn.style.cssText = `
-            position: relative;
-            padding: 10px 5px;
-            color: white !important;
-            text-decoration: none !important;
-            transition: all 0.2s ease;
-            ${isAddButton ? 'background: linear-gradient(0deg, rgb(104, 0, 240), #00000080);' : 'background: linear-gradient(0deg,#6800f0,#ff6b00);'}
-        `;
+        if (url) {
+            btn.href = url;
+        } else if (isAddButton) {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                window.open(CONFIG.EDIT_TABLE_URL, '_blank', 'noopener,noreferrer');
+            };
+        }
 
-        if (url) btn.href = url;
-        if (isAddButton) btn.onclick = () => window.open(CONFIG.EDIT_TABLE_URL, '_blank');
         return btn;
     };
 
@@ -106,22 +173,14 @@
         block.className = 'download-block';
 
         const title = document.createElement('div');
+        title.className = 'download-block-title';
         title.textContent = 'Скачать';
-        title.style.cssText = `
-            margin-bottom: 10px;
-            font-weight: bold;
-            text-align: center;
-        `;
         block.appendChild(title);
 
         const btnGroup = document.createElement('div');
-        btnGroup.className = 'btn-group';
-        btnGroup.style.cssText = `
-            display: flex;
-            margin-bottom: .5rem;
-        `;
+        btnGroup.className = 'download-btn-group';
 
-        btnGroup.appendChild(createButton('🗨️ Чат', CONFIG.CHAT_URL, false, true));
+        btnGroup.appendChild(createButton('🗨️ Чат', CONFIG.CHAT_URL));
 
         if (hasActual) {
             btnGroup.appendChild(createButton('⬇ Актуальная', productData.actual));
@@ -130,14 +189,18 @@
         }
 
         if (hasLeaked) {
-            btnGroup.appendChild(createButton('⬇ Слитая', productData.leaked, false, false, true));
+            btnGroup.appendChild(createButton('⬇ Слитая', productData.leaked));
         } else {
-            btnGroup.appendChild(createButton('✚ Добавить', null, true, false, true));
+            btnGroup.appendChild(createButton('✚ Добавить', null, true));
         }
 
         block.appendChild(btnGroup);
         priceBox.prepend(block);
     };
+
+    // === Запуск ===
+
+    injectStyles();
 
     loadData((data) => {
         const checkAndCreateBlock = () => {
@@ -147,17 +210,16 @@
             }
         };
 
-        const observer = new MutationObserver(() => {
-            checkAndCreateBlock();
-        });
+        // Запускаем сразу
+        checkAndCreateBlock();
 
+        // Наблюдаем за изменениями DOM
+        const observer = new MutationObserver(checkAndCreateBlock);
         observer.observe(document.body, {
             childList: true,
-            subtree: true
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
         });
-
-        setInterval(checkAndCreateBlock, 2000);
-
-        checkAndCreateBlock();
     });
 })();
