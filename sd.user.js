@@ -33,39 +33,42 @@
         const style = document.createElement('style');
         style.id = 'superhive-downloader-styles';
         style.textContent = `
-            .download-block {
-                margin-bottom: 1rem;
-            }
-            .download-block-title {
-                margin-bottom: 10px;
-                font-weight: bold;
-                text-align: center;
-                font-size: 1.1em;
-            }
-            .download-btn-group {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 4px;
-            }
-            .download-btn {
-                display: inline-block;
-                padding: 8px 10px;
-                color: white !important;
-                text-decoration: none !important;
-                text-align: center;
-                border-radius: 4px;
-                transition: all 0.2s ease;
-                font-size: 0.9em;
-                min-width: 100px;
-                box-sizing: border-box;
-            }
-            .download-btn.download {
-                background: linear-gradient(0deg, #6800f0, #ff6b00);
-            }
-            .download-btn.add {
-                background: linear-gradient(0deg, rgb(104, 0, 240), #00000080);
-            }
-        `;
+        .download-block {
+            margin-bottom: 1rem;
+        }
+        .download-block-title {
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        .download-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .btn.download-btn {
+            display: inline-block;
+            padding: 8px 10px;
+            color: white !important;
+            text-decoration: none !important;
+            text-align: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            font-size: 0.9em;
+            min-width: 100px;
+            box-sizing: border-box;
+            cursor: pointer !important;
+            text-shadow: none !important;
+            font-size: .9rem !important;
+        }
+        .btn.download-btn.download {
+            background: linear-gradient(0deg, #6800f0, #ff6b00);
+        }
+        .btn.download-btn.add {
+            background: linear-gradient(0deg, rgb(104, 0, 240), #00000080);
+        }
+    `;
         document.head.appendChild(style);
     };
 
@@ -141,7 +144,7 @@
 
     const createButton = (text, url, isAddButton = false) => {
         const btn = document.createElement('a');
-        btn.className = 'download-btn ' + (isAddButton ? 'add' : 'download');
+        btn.className = 'btn download-btn ' + (isAddButton ? 'add' : 'download');
         btn.textContent = text;
         btn.target = '_blank';
         btn.rel = 'noopener noreferrer';
