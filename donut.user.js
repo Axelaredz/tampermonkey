@@ -13,8 +13,8 @@
 // @grant        GM_setValue
 // @grant        GM_addStyle
 // @connect      blendars.ru
-// @connect      oauth.vk.com
-// @connect      id.vk.com
+// @connect      id.vk.ru
+// @connect      api.vk.com
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -31,8 +31,7 @@
         VK_DONUT_URL        : 'https://vk.com/donut/H360ru',
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
         CACHE_STATUS_MS     :  5 * 60 * 1000,
-        YANDEX_CACHE_MS     : 30 * 60 * 1000,
-        TEST_MODE           : false,
+        YANDEX_CACHE_MS     : 30 * 60 * 1000
     };
 
     // ═══════════════════════════════════════════════
@@ -40,12 +39,10 @@
     // ═══════════════════════════════════════════════
     const SITE_CONFIG = {
         superhive : {
-            // Вставляем В КОНЕЦ .price-box
             selector  : '.price-box',
-            insert    : 'append',          // 'append' | 'prepend' | 'before' | 'after'
+            insert    : 'append',
         },
         gumroad   : {
-            // Вставляем ПОСЛЕ <h1> внутри <header> продукта
             selector  : 'header h1',
             insert    : 'after',
         },
@@ -54,6 +51,23 @@
             insert    : 'append',
         },
     };
+
+    // ═══════════════════════════════════════════════
+    //  🔐  PKCE генератор (RFC-7636)
+    // ═══════════════════════════════════════════════
+    async function generatePKCE() {
+        const code_verifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(code_verifier);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const code_challenge = btoa(String.fromCharCode(...hashArray))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        return { code_verifier, code_challenge };
+    }
 
     // ═══════════════════════════════════════════════
     //  🎨  СТИЛИ
@@ -334,7 +348,7 @@
                     loginBtn.disabled    = false;
                     return;
                 }
-                const realIsDon = await exchangeCodeAndCheck(auth.code, auth.device_id);
+                const realIsDon = await exchangeCodeAndCheck(auth.code, auth.device_id, auth.state);
                 renderBlock(anchor, site, realIsDon, downloadUrl);
             };
             wrapper.appendChild(loginBtn);
@@ -344,29 +358,50 @@
     }
 
     // ═══════════════════════════════════════════════
-    //  🔐  VKID OAuth
+    //  🔐  VKID OAuth 2.1 с PKCE
     // ═══════════════════════════════════════════════
-    function getVKCode() {
+    async function getVKCode() {
+        const { code_verifier, code_challenge } = await generatePKCE();
+
+        // Сохраняем для последующего обмена
+        GM_setValue('pkce_code_verifier', code_verifier);
+
+        const state = crypto.randomUUID().replace(/-/g, '').slice(0, 32);
+        GM_setValue('auth_state', state);
+
+        const authUrl =
+            `https://id.vk.ru/authorize?` +
+            `response_type=code` +
+            `&client_id=${CONFIG.VK_APP_ID}` +
+            `&code_challenge=${code_challenge}` +
+            `&code_challenge_method=S256` +
+            `&redirect_uri=${encodeURIComponent(CONFIG.VK_CALLBACK_URL)}` +
+            `&state=${state}` +
+            `&scope=email`;
+
+        const popup = window.open(authUrl, 'vkid_auth', 'width=620,height=560');
+
         return new Promise((resolve) => {
-            const authUrl =
-                `https://id.vk.com/auth?` +
-                `app_id=${CONFIG.VK_APP_ID}` +
-                `&redirect_uri=${encodeURIComponent(CONFIG.VK_CALLBACK_URL)}` +
-                `&response_type=code` +
-                `&scope=groups` +
-                `&state=${Math.random().toString(36).slice(2)}`;
-
-            const popup = window.open(authUrl, 'vkid_auth', 'width=620,height=560');
-
             const handler = (e) => {
-                // ✅ Принимаем от blendars.ru (любой протокол не нужен — просто проверяем hostname)
-                const fromBlendars = e.origin === 'https://blendars.ru';
-                if (!fromBlendars) return;
-                if (e.data?.type !== 'VKID_CODE') return;
+                // Принимаем сообщения от blendars.ru
+                if (e.origin !== 'https://blendars.ru') return;
+                if (e.data?.type !== 'VKID_PAYLOAD') return;
 
                 window.removeEventListener('message', handler);
                 popup?.close();
-                resolve({ code: e.data.code, device_id: e.data.device_id });
+
+                const payload = e.data.payload;
+                // Проверяем state
+                if (payload.state !== GM_getValue('auth_state')) {
+                    console.error('[VKDonut] State mismatch!');
+                    return resolve(null);
+                }
+
+                resolve({
+                    code: payload.code,
+                    device_id: payload.device_id,
+                    state: payload.state,
+                });
             };
 
             window.addEventListener('message', handler);
@@ -377,13 +412,21 @@
         });
     }
 
-    function exchangeCodeAndCheck(code, device_id) {
+    async function exchangeCodeAndCheck(code, device_id, state) {
         return new Promise((resolve) => {
+            const code_verifier = GM_getValue('pkce_code_verifier', '');
+
             GM_xmlhttpRequest({
                 method  : 'POST',
                 url     : CONFIG.SERVER_CHECK_URL,
                 headers : { 'Content-Type': 'application/json' },
-                data    : JSON.stringify({ mode: 'code', code, device_id }),
+                data    : JSON.stringify({
+                    mode: 'code',
+                    code,
+                    device_id,
+                    state,
+                    code_verifier,
+                }),
                 onload  : (res) => {
                     try {
                         const data = JSON.parse(res.responseText);
