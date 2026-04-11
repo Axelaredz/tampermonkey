@@ -32,7 +32,7 @@
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
         CACHE_STATUS_MS     :  5 * 60 * 1000,
         YANDEX_CACHE_MS     : 30 * 60 * 1000,
-        TEST_MODE           : true,
+        TEST_MODE           : false,
     };
 
     // ═══════════════════════════════════════════════
@@ -286,7 +286,7 @@
                 btn.href        = downloadUrl;
                 btn.target      = '_blank';
                 btn.rel         = 'noopener noreferrer';
-                btn.textContent = '⬇️  Скачать';
+                btn.textContent = '⬇️  Скачать бесплатно для спонсоров';
             } else {
                 btn.className  += ' vkd-btn-disabled';
                 btn.textContent = '⏳  Файл ещё не добавлен';
@@ -315,7 +315,7 @@
 
             const loginBtn       = document.createElement('button');
             loginBtn.className   = 'vkd-btn vkd-btn-outline';
-            loginBtn.textContent = '🔑  Уже спонсор? Войти через VK';
+            loginBtn.textContent = '🔑  Уже спонсор? Войти через VK ID';
 
             loginBtn.onclick = async () => {
                 loginBtn.innerHTML = '<span class="vkd-spinner"></span>&nbsp; Проверяем...';
