@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VK Donut — Спонсорские кнопки (Superhive & Gumroad)
 // @namespace    https://blendars.ru
-// @version      8.6
+// @version      9.0
 // @description  VKID SDK + Яндекс Диск + Gumroad header
 // @match        https://superhivemarket.com/products/*
 // @match        https://*.superhivemarket.com/products/*
@@ -157,6 +157,20 @@
         }
         .vkd-btn-row .vkd-btn {
             flex:1;
+        }
+
+        /* Кнопка папки — компактная, только эмоджи */
+        .vkd-btn-folder {
+            background: linear-gradient(to right, #4CAF50, #66BB6A);
+            color: #fff !important;
+            flex: 0 0 auto !important;
+            width: auto !important;
+            padding: 11px 18px !important;
+            font-size: 20px !important;
+        }
+        .vkd-btn-folder:hover {
+            opacity:.90; transform:translateY(-1px);
+            box-shadow:0 4px 14px rgba(76,175,80,.3);
         }
     `);
 
@@ -380,8 +394,18 @@
 
     /**
      * Запрашивает ссылку на скачивание для конкретного файла.
+     * Также сохраняет путь к папке файла.
      */
     function fetchDownloadUrl(filePath, slug, resolve) {
+        // Сохраняем путь к папке (без имени файла)
+        const parts = filePath.split('/');
+        parts.pop(); // убираем имя файла
+        const folderPath = '/' + parts.filter(Boolean).join('/');
+
+        if (folderPath) {
+            GM_setValue(`yadisk_folder_${slug}`, folderPath);
+        }
+
         GM_xmlhttpRequest({
             method : 'GET',
             url    : `${CONFIG.YANDEX_DOWNLOAD_URL}?path=${encodeURIComponent(filePath)}`,
@@ -425,7 +449,7 @@
     // ═══════════════════════════════════════════════
     //  🏗️  Рендер блока
     // ═══════════════════════════════════════════════
-    function renderBlock(anchor, site, isDon, downloadUrl) {
+    function renderBlock(anchor, site, isDon, downloadUrl, slug) {
 
         // Убираем старый блок
         document.querySelector('.vkd-wrapper')?.remove();
@@ -444,6 +468,20 @@
             const row = document.createElement('div');
             row.className = 'vkd-btn-row';
 
+            // Кнопка Открыть папку
+            const folderPath = GM_getValue(`yadisk_folder_${slug}`, null);
+            if (folderPath) {
+                const yadiskUrl = `https://disk.yandex.ru/client/disk${folderPath}`;
+                const folderBtn = document.createElement('a');
+                folderBtn.href = yadiskUrl;
+                folderBtn.target = '_blank';
+                folderBtn.rel = 'noopener noreferrer';
+                folderBtn.className = 'btn btn-lg vkd-btn vkd-btn-folder';
+                folderBtn.textContent = '📂';
+                folderBtn.title = 'Открыть папку на Яндекс Диске';
+                row.appendChild(folderBtn);
+            }
+
             // Кнопка Скачать
             const dlBtn = document.createElement('a');
             dlBtn.className = 'btn btn-lg vkd-btn vkd-btn-gold';
@@ -455,10 +493,10 @@
                 dlBtn.href        = downloadUrl;
                 dlBtn.target      = '_blank';
                 dlBtn.rel         = 'noopener noreferrer';
-                dlBtn.textContent = '⬇️  СКАЧАТЬ';
+                dlBtn.textContent = '⬇️ СКАЧАТЬ';
             } else {
                 dlBtn.className  += ' vkd-btn-disabled';
-                dlBtn.textContent = '🥲 Не добавлен';
+                dlBtn.textContent = '⏳  Файл не найден';
             }
             row.appendChild(dlBtn);
 
@@ -469,7 +507,7 @@
             chatBtn.target = '_blank';
             chatBtn.rel = 'noopener noreferrer';
             chatBtn.className = 'btn btn-lg vkd-btn vkd-btn-chat';
-            chatBtn.textContent = '💬  НАШ ЧАТ';
+            chatBtn.textContent = '💬 НАШ ЧАТ';
             row.appendChild(chatBtn);
 
             wrapper.appendChild(row);
@@ -522,7 +560,7 @@
                     return;
                 }
                 const realIsDon = await exchangeCodeAndCheck(auth.code, auth.device_id, auth.state);
-                renderBlock(anchor, site, realIsDon, downloadUrl);
+                renderBlock(anchor, site, realIsDon, null, slug);
             };
             wrapper.appendChild(loginBtn);
         }
@@ -654,12 +692,12 @@
         const freshUrl  = cachedUrl && Date.now() - cachedAt < CONFIG.YANDEX_CACHE_MS ? cachedUrl : null;
 
         // Первый рендер: сразу (с "Сканируем облако..." если нет кэша)
-        renderBlock(anchor, site, isDon, freshUrl || 'loading');
+        renderBlock(anchor, site, isDon, freshUrl || 'loading', slug);
 
         // Фоновая загрузка ссылки если нет кэша
         if (!freshUrl && isDon) {
             const downloadUrl = await getYandexDownloadUrl(slug);
-            renderBlock(anchor, site, isDon, downloadUrl);
+            renderBlock(anchor, site, isDon, downloadUrl, slug);
         }
     }
 
