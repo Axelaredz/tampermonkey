@@ -31,7 +31,7 @@
         VK_DONUT_URL        : 'https://vk.com/donut/H360ru',
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
         CACHE_STATUS_MS     :  5 * 60 * 1000,
-        YANDEX_CACHE_MS     : 30 * 60 * 1000
+        YANDEX_CACHE_MS     : 30 * 60 * 1000,
     };
 
     // ═══════════════════════════════════════════════
@@ -300,7 +300,7 @@
                 btn.href        = downloadUrl;
                 btn.target      = '_blank';
                 btn.rel         = 'noopener noreferrer';
-                btn.textContent = '⬇️  Скачать бесплатно для спонсоров';
+                btn.textContent = '⬇️  Скачать';
             } else {
                 btn.className  += ' vkd-btn-disabled';
                 btn.textContent = '⏳  Файл ещё не добавлен';
@@ -313,7 +313,7 @@
             const notDon     = document.createElement('div');
             notDon.className = 'vkd-not-don';
             notDon.innerHTML = `
-                🍩 Этот контент доступен <strong>бесплатно</strong> для спонсоров.<br>
+                🍩 Этот контент доступен для спонсоров.<br>
                 <small style="opacity:.75">Уже поддерживаете нас? Войдите ниже 👇</small>
             `;
             wrapper.appendChild(notDon);
@@ -383,17 +383,16 @@
 
         return new Promise((resolve) => {
             const handler = (e) => {
-                // Принимаем сообщения от blendars.ru
-                if (e.origin !== 'https://blendars.ru') return;
+                console.log('[VKDonut] Получено postMessage:', e.origin, e.data);
+
                 if (e.data?.type !== 'VKID_PAYLOAD') return;
 
                 window.removeEventListener('message', handler);
                 popup?.close();
 
                 const payload = e.data.payload;
-                // Проверяем state
-                if (payload.state !== GM_getValue('auth_state')) {
-                    console.error('[VKDonut] State mismatch!');
+                if (!payload || !payload.code) {
+                    console.error('[VKDonut] Пустой payload:', payload);
                     return resolve(null);
                 }
 
@@ -416,6 +415,8 @@
         return new Promise((resolve) => {
             const code_verifier = GM_getValue('pkce_code_verifier', '');
 
+            console.log('[VKDonut] 🔍 Отправляю на сервер: code=', code.substring(0, 20) + '...', 'device_id=', device_id.substring(0, 10) + '...');
+
             GM_xmlhttpRequest({
                 method  : 'POST',
                 url     : CONFIG.SERVER_CHECK_URL,
@@ -428,14 +429,22 @@
                     code_verifier,
                 }),
                 onload  : (res) => {
+                    console.log('[VKDonut] 📨 Ответ сервера:', res.status, res.responseText);
                     try {
                         const data = JSON.parse(res.responseText);
+                        console.log('[VKDonut] ✅ isDon:', data.isDon);
                         GM_setValue('donut_status', data.isDon === true);
                         GM_setValue('donut_status_time', Date.now());
                         resolve(data.isDon === true);
-                    } catch { resolve(false); }
+                    } catch(e) {
+                        console.error('[VKDonut] ❌ Ошибка парсинга:', e, 'raw:', res.responseText);
+                        resolve(false);
+                    }
                 },
-                onerror : () => resolve(false),
+                onerror : (err) => {
+                    console.error('[VKDonut] ❌ Ошибка запроса:', err);
+                    resolve(false);
+                },
             });
         });
     }
