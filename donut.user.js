@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VK Donut — Спонсорские кнопки (Superhive & Gumroad)
 // @namespace    https://blendars.ru
-// @version      8.3
+// @version      8.6
 // @description  VKID SDK + Яндекс Диск + Gumroad header
 // @match        https://superhivemarket.com/products/*
 // @match        https://*.superhivemarket.com/products/*
@@ -314,14 +314,12 @@
 
             if (listFresh && cachedList.length > 0) {
                 const normalized = normalizeSlug(slug);
-                const found = cachedList.find(f => f.slug === normalized);
+                const found = findFileBySlug(cachedList, normalized);
 
                 if (found) {
                     console.log(`[VKDonut] ☁️ Найдено в кэше списка: "${found.name}"`);
-                    // Файл есть в списке — запрашиваем ссылку
                     return fetchDownloadUrl(found.path, slug, resolve);
                 } else {
-                    // Файла нет в свежем кэше — не ищем дальше
                     console.warn(`[VKDonut] ⚠️ Файл "${slug}" не найден в кэше (${cachedList.length} файлов)`);
                     return resolve(null);
                 }
@@ -335,7 +333,7 @@
                 }
 
                 const normalized = normalizeSlug(slug);
-                const found = files.find(f => f.slug === normalized);
+                const found = findFileBySlug(files, normalized);
 
                 if (found) {
                     console.log(`[VKDonut] ☁️ Найдено: "${found.name}"`);
@@ -346,6 +344,38 @@
                 }
             });
         });
+    }
+
+    /**
+     * Ищет файл в списке. Порядок приоритета:
+     * 1. Точное совпадение slug
+     * 2. Файл начинается с slug (easyref → easyref-v-2-0-0)
+     * 3. Slug содержится в имени файла
+     */
+    function findFileBySlug(files, slug) {
+        let bestMatch = null;
+        let bestScore = 0;
+
+        for (const f of files) {
+            let score = 0;
+
+            if (f.slug === slug) {
+                score = 100;
+            } else if (f.slug.startsWith(slug + '-') || f.slug.startsWith(slug + '_')) {
+                score = 90;
+            } else if (f.slug.startsWith(slug)) {
+                score = 80;
+            } else if (f.slug.includes(slug)) {
+                score = 60;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = f;
+            }
+        }
+
+        return bestScore > 0 ? bestMatch : null;
     }
 
     /**
@@ -418,14 +448,17 @@
             const dlBtn = document.createElement('a');
             dlBtn.className = 'btn btn-lg vkd-btn vkd-btn-gold';
 
-            if (downloadUrl) {
+            if (downloadUrl === 'loading') {
+                dlBtn.className += ' vkd-btn-disabled';
+                dlBtn.textContent = '⏳  Сканируем облако...';
+            } else if (downloadUrl) {
                 dlBtn.href        = downloadUrl;
                 dlBtn.target      = '_blank';
                 dlBtn.rel         = 'noopener noreferrer';
-                dlBtn.textContent = '⬇️  Скачать';
+                dlBtn.textContent = '⬇️  СКАЧАТЬ';
             } else {
                 dlBtn.className  += ' vkd-btn-disabled';
-                dlBtn.textContent = '⏳  Файл ещё не добавлен';
+                dlBtn.textContent = '🥲 Не добавлен';
             }
             row.appendChild(dlBtn);
 
@@ -436,7 +469,7 @@
             chatBtn.target = '_blank';
             chatBtn.rel = 'noopener noreferrer';
             chatBtn.className = 'btn btn-lg vkd-btn vkd-btn-chat';
-            chatBtn.textContent = '💬  Наш чат';
+            chatBtn.textContent = '💬  НАШ ЧАТ';
             row.appendChild(chatBtn);
 
             wrapper.appendChild(row);
@@ -608,17 +641,26 @@
         }
         console.log('[VKDonut] 📌 Якорь найден:', anchor);
 
-        const [isDon, downloadUrl] = await Promise.all([
-            (() => {
-                const cached = GM_getValue('donut_status', null);
-                const time   = GM_getValue('donut_status_time', 0);
-                return cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS
-                    ? cached : false;
-            })(),
-            getYandexDownloadUrl(slug),
-        ]);
+        // Проверяем кэш авторизации
+        const cached = GM_getValue('donut_status', null);
+        const time   = GM_getValue('donut_status_time', 0);
+        const isDon  = cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS ? cached : false;
 
-        renderBlock(anchor, site, isDon, downloadUrl);
+        // Проверяем кэш ссылки
+        const cacheKey = `yadisk_url_${slug}`;
+        const timeKey  = `yadisk_time_${slug}`;
+        const cachedUrl = GM_getValue(cacheKey, null);
+        const cachedAt  = GM_getValue(timeKey, 0);
+        const freshUrl  = cachedUrl && Date.now() - cachedAt < CONFIG.YANDEX_CACHE_MS ? cachedUrl : null;
+
+        // Первый рендер: сразу (с "Сканируем облако..." если нет кэша)
+        renderBlock(anchor, site, isDon, freshUrl || 'loading');
+
+        // Фоновая загрузка ссылки если нет кэша
+        if (!freshUrl && isDon) {
+            const downloadUrl = await getYandexDownloadUrl(slug);
+            renderBlock(anchor, site, isDon, downloadUrl);
+        }
     }
 
     // SPA: следим за сменой URL
