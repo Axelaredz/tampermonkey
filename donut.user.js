@@ -3,10 +3,10 @@
 // @namespace    https://blendars.ru
 // @version      8.0
 // @description  VKID SDK + Яндекс Диск + Gumroad header
-// @match        https://superhivemarket.com/*
-// @match        https://*.superhivemarket.com/*
-// @match        https://gumroad.com/*
-// @match        https://*.gumroad.com/*
+// @match        https://superhivemarket.com/products/*
+// @match        https://*.superhivemarket.com/products/*
+// @match        https://gumroad.com/l/*
+// @match        https://*.gumroad.com/l/*
 // @match        https://blendars.ru/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -15,6 +15,7 @@
 // @connect      blendars.ru
 // @connect      id.vk.ru
 // @connect      api.vk.com
+// @connect      cloud-api.yandex.net
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -30,8 +31,9 @@
         VK_CALLBACK_URL     : 'https://blendars.ru/api/vk-callback.html',
         VK_DONUT_URL        : 'https://vk.com/donut/H360ru',
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
-        CACHE_STATUS_MS     :  5 * 60 * 1000,
-        YANDEX_CACHE_MS     : 30 * 60 * 1000,
+        CACHE_STATUS_MS     : 24 * 60 * 60 * 1000,  // 24 часа
+        YANDEX_CACHE_MS     : 10 * 60 * 1000,
+        YANDEX_LIST_CACHE_MS: 10 * 60 * 1000,  // Кэш списка файлов — 10 мин
     };
 
     // ═══════════════════════════════════════════════
@@ -226,52 +228,154 @@
     }
 
     // ═══════════════════════════════════════════════
-    //  ☁️  Яндекс Диск — получение ссылки
+    //  ☁️  Яндекс Диск — список файлов и скачивание
     // ═══════════════════════════════════════════════
+
+    /**
+     * Получает список всех файлов с Яндекс Диска (с кэшем).
+     * Возвращает массив: [{ name, slug, path, size, updated }]
+     */
+    function getYandexFileList() {
+        return new Promise((resolve) => {
+            const cacheKey  = 'yandex_file_list';
+            const timeKey   = 'yandex_file_list_time';
+            const cached    = GM_getValue(cacheKey, null);
+            const cachedAt  = GM_getValue(timeKey, 0);
+
+            // Есть свежий кэш
+            if (cached && Date.now() - cachedAt < CONFIG.YANDEX_LIST_CACHE_MS) {
+                console.log(`[VKDonut] ☁️ Кэш списка: ${cached.length} файлов`);
+                return resolve(cached);
+            }
+
+            console.log('[VKDonut] ☁️ Запрашиваю список файлов с сервера...');
+
+            GM_xmlhttpRequest({
+                method : 'GET',
+                url    : `${CONFIG.YANDEX_DOWNLOAD_URL.replace('yandex-download', 'yandex-list')}`,
+                onload : (res) => {
+                    try {
+                        const data = JSON.parse(res.responseText);
+                        const files = data.files || [];
+                        GM_setValue(cacheKey, files);
+                        GM_setValue(timeKey, Date.now());
+                        console.log(`[VKDonut] ✅ Получено ${files.length} файлов с Яндекс Диска`);
+                        resolve(files);
+                    } catch(e) {
+                        console.error('[VKDonut] Ошибка парсинга списка:', e);
+                        resolve([]);
+                    }
+                },
+                onerror : () => {
+                    console.error('[VKDonut] ❌ Ошибка запроса списка файлов');
+                    resolve([]);
+                },
+            });
+        });
+    }
+
+    /**
+     * Ищет файл по slug и получает ссылку на скачивание.
+     * Сначала ищет в кэше списка файлов, затем запрашивает ссылку.
+     */
     function getYandexDownloadUrl(slug) {
         return new Promise((resolve) => {
             if (!slug) return resolve(null);
 
-            // Кэш
+            // Кэш готовой ссылки (для уже найденных файлов)
             const cacheKey  = `yadisk_url_${slug}`;
             const timeKey   = `yadisk_time_${slug}`;
             const cachedUrl = GM_getValue(cacheKey, null);
             const cachedAt  = GM_getValue(timeKey, 0);
 
             if (cachedUrl && Date.now() - cachedAt < CONFIG.YANDEX_CACHE_MS) {
-                console.log(`[VKDonut] ☁️ Кэш: "${slug}" → ${cachedUrl}`);
+                console.log(`[VKDonut] ☁️ Кэш ссылки: "${slug}"`);
                 return resolve(cachedUrl);
             }
 
-            console.log(`[VKDonut] ☁️ Ищем на Яндекс Диске: "${slug}"`);
+            // Сначала ищем в кэше списка файлов
+            const cachedList = GM_getValue('yandex_file_list', null);
+            const listTime   = GM_getValue('yandex_file_list_time', 0);
+            const listFresh  = cachedList && Date.now() - listTime < CONFIG.YANDEX_LIST_CACHE_MS;
 
-            GM_xmlhttpRequest({
-                method : 'GET',
-                url    : `${CONFIG.YANDEX_DOWNLOAD_URL}?slug=${encodeURIComponent(slug)}`,
-                onload : (res) => {
-                    try {
-                        const data = JSON.parse(res.responseText);
-                        const url  = data.url ?? null;
-                        if (url) {
-                            GM_setValue(cacheKey, url);
-                            GM_setValue(timeKey, Date.now());
-                            console.log(`[VKDonut] ✅ Найдено: "${slug}" → ${url}`);
-                        } else {
-                            console.warn(`[VKDonut] ⚠️ Файл не найден: "${slug}"`);
-                            console.warn('[VKDonut] Ответ сервера:', res.responseText);
-                        }
-                        resolve(url);
-                    } catch(e) {
-                        console.error('[VKDonut] Ошибка парсинга:', e);
-                        resolve(null);
-                    }
-                },
-                onerror : () => {
-                    console.error('[VKDonut] ❌ Ошибка запроса к серверу');
+            if (listFresh && cachedList.length > 0) {
+                const normalized = normalizeSlug(slug);
+                const found = cachedList.find(f => f.slug === normalized);
+
+                if (found) {
+                    console.log(`[VKDonut] ☁️ Найдено в кэше списка: "${found.name}"`);
+                    // Файл есть в списке — запрашиваем ссылку
+                    return fetchDownloadUrl(found.path, slug, resolve);
+                } else {
+                    // Файла нет в свежем кэше — не ищем дальше
+                    console.warn(`[VKDonut] ⚠️ Файл "${slug}" не найден в кэше (${cachedList.length} файлов)`);
+                    return resolve(null);
+                }
+            }
+
+            // Кэш списка устарел или пуст — сначала обновим его
+            getYandexFileList().then(files => {
+                if (!files || files.length === 0) {
+                    console.warn('[VKDonut] ⚠️ Список файлов пуст');
+                    return resolve(null);
+                }
+
+                const normalized = normalizeSlug(slug);
+                const found = files.find(f => f.slug === normalized);
+
+                if (found) {
+                    console.log(`[VKDonut] ☁️ Найдено: "${found.name}"`);
+                    fetchDownloadUrl(found.path, slug, resolve);
+                } else {
+                    console.warn(`[VKDonut] ⚠️ Файл не найден: "${slug}" (${files.length} файлов в списке)`);
                     resolve(null);
-                },
+                }
             });
         });
+    }
+
+    /**
+     * Запрашивает ссылку на скачивание для конкретного файла.
+     */
+    function fetchDownloadUrl(filePath, slug, resolve) {
+        GM_xmlhttpRequest({
+            method : 'GET',
+            url    : `${CONFIG.YANDEX_DOWNLOAD_URL}?path=${encodeURIComponent(filePath)}`,
+            onload : (res) => {
+                try {
+                    const data = JSON.parse(res.responseText);
+                    const url  = data.url ?? null;
+                    if (url) {
+                        const cacheKey = `yadisk_url_${slug}`;
+                        const timeKey  = `yadisk_time_${slug}`;
+                        GM_setValue(cacheKey, url);
+                        GM_setValue(timeKey, Date.now());
+                        console.log(`[VKDonut] ✅ Ссылка получена: "${slug}"`);
+                    } else {
+                        console.warn(`[VKDonut] ⚠️ Нет ссылки для: "${slug}"`);
+                    }
+                    resolve(url);
+                } catch(e) {
+                    console.error('[VKDonut] Ошибка парсинга:', e);
+                    resolve(null);
+                }
+            },
+            onerror : () => {
+                console.error('[VKDonut] ❌ Ошибка запроса ссылки');
+                resolve(null);
+            },
+        });
+    }
+
+    /**
+     * Нормализует slug для сравнения (нижний регистр, дефисы вместо подчёркиваний).
+     */
+    function normalizeSlug(str) {
+        return str.toLowerCase()
+            .replace(/[\s_\.]+/g, '-')
+            .replace(/[^a-z0-9\-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
     }
 
     // ═══════════════════════════════════════════════
@@ -300,7 +404,7 @@
                 btn.href        = downloadUrl;
                 btn.target      = '_blank';
                 btn.rel         = 'noopener noreferrer';
-                btn.textContent = '⬇️  Скачать';
+                btn.textContent = '⬇️  Скачать бесплатно для спонсоров';
             } else {
                 btn.className  += ' vkd-btn-disabled';
                 btn.textContent = '⏳  Файл ещё не добавлен';
@@ -313,7 +417,7 @@
             const notDon     = document.createElement('div');
             notDon.className = 'vkd-not-don';
             notDon.innerHTML = `
-                🍩 Этот контент доступен для спонсоров.<br>
+                🍩 Этот контент доступен <strong>бесплатно</strong> для спонсоров.<br>
                 <small style="opacity:.75">Уже поддерживаете нас? Войдите ниже 👇</small>
             `;
             wrapper.appendChild(notDon);
@@ -334,13 +438,6 @@
             loginBtn.onclick = async () => {
                 loginBtn.innerHTML = '<span class="vkd-spinner"></span>&nbsp; Проверяем...';
                 loginBtn.disabled  = true;
-
-                if (CONFIG.TEST_MODE) {
-                    await new Promise(r => setTimeout(r, 900));
-                    GM_setValue('test_is_don', true);
-                    renderBlock(anchor, site, true, downloadUrl);
-                    return;
-                }
 
                 const auth = await getVKCode();
                 if (!auth) {
@@ -469,16 +566,12 @@
         console.log('[VKDonut] 📌 Якорь найден:', anchor);
 
         const [isDon, downloadUrl] = await Promise.all([
-            Promise.resolve(
-                CONFIG.TEST_MODE
-                    ? GM_getValue('test_is_don', false)
-                    : (() => {
-                        const cached = GM_getValue('donut_status', null);
-                        const time   = GM_getValue('donut_status_time', 0);
-                        return cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS
-                            ? cached : false;
-                    })()
-            ),
+            (() => {
+                const cached = GM_getValue('donut_status', null);
+                const time   = GM_getValue('donut_status_time', 0);
+                return cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS
+                    ? cached : false;
+            })(),
             getYandexDownloadUrl(slug),
         ]);
 
