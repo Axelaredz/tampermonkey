@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VK Donut — Спонсорские кнопки (Superhive & Gumroad)
 // @namespace    https://blendars.ru
-// @version      8.2
+// @version      8.3
 // @description  VKID SDK + Яндекс Диск + Gumroad header
 // @match        https://superhivemarket.com/products/*
 // @match        https://*.superhivemarket.com/products/*
@@ -98,11 +98,10 @@
             font-size:14px; font-weight:600; cursor:pointer;
             text-decoration:none !important;
             transition:opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-            width:100%; box-sizing:border-box; line-height:1;
+            width:50%; box-sizing:border-box;
         }
-        .vkd-btn + .vkd-btn { margin-top:8px; }
-        .vkd-btn:hover  { opacity:.90; transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,.15); }
-        .vkd-btn:active { opacity:1; transform:translateY(0); box-shadow:none; }
+        .vkd-btn:hover  { opacity:.90; box-shadow:0 4px 14px rgba(0,0,0,.15); }
+        .vkd-btn:active { opacity:1; box-shadow:none; }
 
         .vkd-btn-gold {
             background: linear-gradient(to right, #b85e00, #f5a623) !important;
@@ -125,7 +124,7 @@
         .vkd-not-don {
             background: linear-gradient(135deg,#fff8f0,#fff3e3);
             border:1px solid #f5c87a; border-radius:10px;
-            padding:12px 14px; font-size:13px; color:#7a4f00; line-height:1.5;
+            padding:12px 14px; font-size:13px; color:#7a4f00;
             margin-bottom:8px;
         }
         .vkd-not-don a { color:#c47200; font-weight:700; text-decoration:underline; }
@@ -151,6 +150,14 @@
             color: #fff !important;
         }
         .vkd-btn-chat:hover { opacity:.90; transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,119,255,.25); }
+
+        /* Ряд двух кнопок */
+        .vkd-btn-row {
+            display:flex; gap:10px;
+        }
+        .vkd-btn-row .vkd-btn {
+            flex:1;
+        }
     `);
 
     // ═══════════════════════════════════════════════
@@ -386,24 +393,6 @@
     }
 
     // ═══════════════════════════════════════════════
-    //  💬  Кнопка «Наш чат»
-    // ═══════════════════════════════════════════════
-    function renderChatButton(wrapper) {
-        if (!wrapper) return;
-
-        const chatUrl = 'https://vk.me/join/5qTBf/9QOVzb56xnH0e87EM08Kll2qAG_JY=';
-
-        const btn = document.createElement('a');
-        btn.href = chatUrl;
-        btn.target = '_blank';
-        btn.rel = 'noopener noreferrer';
-        btn.className = 'btn btn-primary vkd-btn vkd-btn-chat';
-        btn.textContent = '💬  Наш чат';
-
-        wrapper.appendChild(btn);
-    }
-
-    // ═══════════════════════════════════════════════
     //  🏗️  Рендер блока
     // ═══════════════════════════════════════════════
     function renderBlock(anchor, site, isDon, downloadUrl) {
@@ -422,20 +411,35 @@
 
         if (isDon) {
             // ── Вид спонсора ─────────────────────────────────
-            const btn     = document.createElement('a');
-            btn.className = 'btn btn-primary vkd-btn vkd-btn-gold';
+            const row = document.createElement('div');
+            row.className = 'vkd-btn-row';
+
+            // Кнопка Скачать
+            const dlBtn = document.createElement('a');
+            dlBtn.className = 'btn btn-lg vkd-btn vkd-btn-gold';
 
             if (downloadUrl) {
-                btn.href        = downloadUrl;
-                btn.target      = '_blank';
-                btn.rel         = 'noopener noreferrer';
-                btn.textContent = '⬇️  Скачать бесплатно для спонсоров';
+                dlBtn.href        = downloadUrl;
+                dlBtn.target      = '_blank';
+                dlBtn.rel         = 'noopener noreferrer';
+                dlBtn.textContent = '⬇️  Скачать';
             } else {
-                btn.className  += ' vkd-btn-disabled';
-                btn.textContent = '⏳  Файл ещё не добавлен';
+                dlBtn.className  += ' vkd-btn-disabled';
+                dlBtn.textContent = '⏳  Файл ещё не добавлен';
             }
+            row.appendChild(dlBtn);
 
-            wrapper.appendChild(btn);
+            // Кнопка Чат
+            const chatUrl = 'https://vk.me/join/5qTBf/9QOVzb56xnH0e87EM08Kll2qAG_JY=';
+            const chatBtn = document.createElement('a');
+            chatBtn.href = chatUrl;
+            chatBtn.target = '_blank';
+            chatBtn.rel = 'noopener noreferrer';
+            chatBtn.className = 'btn btn-lg vkd-btn vkd-btn-chat';
+            chatBtn.textContent = '💬  Наш чат';
+            row.appendChild(chatBtn);
+
+            wrapper.appendChild(row);
 
         } else {
             // ── Вид гостя ────────────────────────────────────
@@ -447,14 +451,28 @@
             `;
             wrapper.appendChild(notDon);
 
-            const becomeBtn           = document.createElement('a');
-            becomeBtn.href            = CONFIG.VK_DONUT_URL;
-            becomeBtn.target          = '_blank';
-            becomeBtn.rel             = 'noopener noreferrer';
-            becomeBtn.className       = 'btn btn-primary vkd-btn vkd-btn-donut';
-            becomeBtn.style.marginBottom = '6px';
-            becomeBtn.textContent     = '🍩  Стать спонсором BLEND ARS';
-            wrapper.appendChild(becomeBtn);
+            // Ряд: Стать спонсором + Чат
+            const guestRow = document.createElement('div');
+            guestRow.className = 'vkd-btn-row';
+
+            const becomeBtn = document.createElement('a');
+            becomeBtn.href = CONFIG.VK_DONUT_URL;
+            becomeBtn.target = '_blank';
+            becomeBtn.rel = 'noopener noreferrer';
+            becomeBtn.className = 'btn vkd-btn vkd-btn-donut btn-lg';
+            becomeBtn.textContent = '🍩  Стать спонсором';
+            guestRow.appendChild(becomeBtn);
+
+            const chatUrl = 'https://vk.me/join/5qTBf/9QOVzb56xnH0e87EM08Kll2qAG_JY=';
+            const chatBtn = document.createElement('a');
+            chatBtn.href = chatUrl;
+            chatBtn.target = '_blank';
+            chatBtn.rel = 'noopener noreferrer';
+            chatBtn.className = 'btn vkd-btn vkd-btn-chat btn-lg';
+            chatBtn.textContent = '💬  Наш чат';
+            guestRow.appendChild(chatBtn);
+
+            wrapper.appendChild(guestRow);
 
             const loginBtn       = document.createElement('button');
             loginBtn.className   = 'vkd-btn vkd-btn-outline';
@@ -601,7 +619,6 @@
         ]);
 
         renderBlock(anchor, site, isDon, downloadUrl);
-        renderChatButton(document.querySelector('.vkd-wrapper'));
     }
 
     // SPA: следим за сменой URL
