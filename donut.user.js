@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VK Donut — Спонсорские кнопки (Superhive & Gumroad)
 // @namespace    https://blendars.ru
-// @version      8.0
+// @version      8.2
 // @description  VKID SDK + Яндекс Диск + Gumroad header
 // @match        https://superhivemarket.com/products/*
 // @match        https://*.superhivemarket.com/products/*
@@ -144,6 +144,13 @@
         header .vkd-divider {
             margin-top: 4px;
         }
+
+        /* Кнопка чата */
+        .vkd-btn-chat {
+            background: linear-gradient(to right, #0077FF, #00AAFF);
+            color: #fff !important;
+        }
+        .vkd-btn-chat:hover { opacity:.90; transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,119,255,.25); }
     `);
 
     // ═══════════════════════════════════════════════
@@ -379,6 +386,24 @@
     }
 
     // ═══════════════════════════════════════════════
+    //  💬  Кнопка «Наш чат»
+    // ═══════════════════════════════════════════════
+    function renderChatButton(wrapper) {
+        if (!wrapper) return;
+
+        const chatUrl = 'https://vk.me/join/5qTBf/9QOVzb56xnH0e87EM08Kll2qAG_JY=';
+
+        const btn = document.createElement('a');
+        btn.href = chatUrl;
+        btn.target = '_blank';
+        btn.rel = 'noopener noreferrer';
+        btn.className = 'btn btn-primary vkd-btn vkd-btn-chat';
+        btn.textContent = '💬  Наш чат';
+
+        wrapper.appendChild(btn);
+    }
+
+    // ═══════════════════════════════════════════════
     //  🏗️  Рендер блока
     // ═══════════════════════════════════════════════
     function renderBlock(anchor, site, isDon, downloadUrl) {
@@ -576,6 +601,7 @@
         ]);
 
         renderBlock(anchor, site, isDon, downloadUrl);
+        renderChatButton(document.querySelector('.vkd-wrapper'));
     }
 
     // SPA: следим за сменой URL
