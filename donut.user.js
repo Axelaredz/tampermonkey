@@ -115,6 +115,7 @@
             background: transparent;
             color: #3a7ef6 !important;
             border: 2px solid #3a7ef6;
+            width:100%;
         }
         .vkd-btn-outline:hover { background: #f0f5ff; }
         .vkd-btn-disabled {
@@ -123,9 +124,11 @@
         }
         .vkd-not-don {
             background: linear-gradient(135deg,#fff8f0,#fff3e3);
-            border:1px solid #f5c87a; border-radius:10px;
+            border:2px solid #f5c87a; border-radius:.5rem;
             padding:12px 14px; font-size:13px; color:#7a4f00;
-            margin-bottom:8px;
+            text-align:center;
+            margin-bottom:10px;
+
         }
         .vkd-not-don a { color:#c47200; font-weight:700; text-decoration:underline; }
         .vkd-spinner {
@@ -154,6 +157,7 @@
         /* Ряд двух кнопок */
         .vkd-btn-row {
             display:flex; gap:10px;
+            margin-bottom:10px;
         }
         .vkd-btn-row .vkd-btn {
             flex:1;
@@ -517,7 +521,7 @@
             const notDon     = document.createElement('div');
             notDon.className = 'vkd-not-don';
             notDon.innerHTML = `
-                🍩 Этот контент доступен <strong>бесплатно</strong> для спонсоров.<br>
+                🍩 Этот контент доступен для спонсоров.<br>
                 <small style="opacity:.75">Уже поддерживаете нас? Войдите ниже 👇</small>
             `;
             wrapper.appendChild(notDon);
