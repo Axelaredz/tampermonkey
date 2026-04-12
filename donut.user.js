@@ -156,7 +156,7 @@
 
         /* Ряд двух кнопок */
         .vkd-btn-row {
-            display:flex; gap:10px;
+            display:flex; gap:5px;
             margin-bottom:10px;
         }
         .vkd-btn-row .vkd-btn {
