@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         VK Donut — Спонсорские кнопки (Superhive & Gumroad)
 // @namespace    https://blendars.ru
-// @version      9.0
+// @version      13
 // @description  VKID SDK + Яндекс Диск + Gumroad header
-// @match        https://superhivemarket.com/products/*
-// @match        https://*.superhivemarket.com/products/*
-// @match        https://gumroad.com/l/*
-// @match        https://*.gumroad.com/l/*
+// @match        https://superhivemarket.com/*
+// @match        https://*.superhivemarket.com/*
+// @match        https://gumroad.com/*
+// @match        https://*.gumroad.com/*
 // @match        https://blendars.ru/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -22,23 +22,20 @@
 (function () {
     'use strict';
 
-    // ═══════════════════════════════════════════════
-    //  ⚙️  КОНФИГ
-    // ═══════════════════════════════════════════════
+    // КОНФИГ
     const CONFIG = {
         VK_APP_ID           : '54454085',
         SERVER_CHECK_URL    : 'https://blendars.ru/api/check-don',
         VK_CALLBACK_URL     : 'https://blendars.ru/api/vk-callback.html',
         VK_DONUT_URL        : 'https://vk.com/donut/H360ru',
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
-        CACHE_STATUS_MS     : 24 * 60 * 60 * 1000,  // 24 часа
+        YANDEX_FOLDER_URL   : 'https://blendars.ru/api/yandex-folder',
+        CACHE_STATUS_MS     : 72 * 60 * 60 * 1000,  // 3 дня
         YANDEX_CACHE_MS     : 10 * 60 * 1000,
         YANDEX_LIST_CACHE_MS: 10 * 60 * 1000,  // Кэш списка файлов — 10 мин
     };
 
-    // ═══════════════════════════════════════════════
-    //  📍  Настройки якорей для каждого сайта
-    // ═══════════════════════════════════════════════
+    // Настройки якорей для каждого сайта
     const SITE_CONFIG = {
         superhive : {
             selector  : '.price-box',
@@ -54,9 +51,7 @@
         },
     };
 
-    // ═══════════════════════════════════════════════
-    //  🔐  PKCE генератор (RFC-7636)
-    // ═══════════════════════════════════════════════
+    // PKCE генератор (RFC-7636)
     async function generatePKCE() {
         const code_verifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
             .map(b => b.toString(16).padStart(2, '0')).join('');
@@ -71,9 +66,7 @@
         return { code_verifier, code_challenge };
     }
 
-    // ═══════════════════════════════════════════════
-    //  🎨  СТИЛИ
-    // ═══════════════════════════════════════════════
+    // СТИЛИ
     GM_addStyle(`
         .vkd-wrapper {
             margin: 16px 8px;
@@ -93,12 +86,7 @@
             content:''; flex:1; height:1px; background:#e0e0e0;
         }
         .vkd-btn {
-            display:inline-flex; align-items:center; justify-content:center;
-            gap:8px; padding:11px 20px; border:none; border-radius:10px;
-            font-size:14px; font-weight:600; cursor:pointer;
-            text-decoration:none !important;
-            transition:opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-            width:50%; box-sizing:border-box;
+            gap:5px;width:50%; box-sizing:border-box;
         }
         .vkd-btn:hover  { opacity:.90; box-shadow:0 4px 14px rgba(0,0,0,.15); }
         .vkd-btn:active { opacity:1; box-shadow:none; }
@@ -158,9 +146,13 @@
         .vkd-btn-row {
             display:flex; gap:5px;
             margin-bottom:10px;
+            justify-content: center;
+            align-items: center;
+
         }
         .vkd-btn-row .vkd-btn {
             flex:1;
+            font-size:.8rem !important;
         }
 
         /* Кнопка папки — компактная, только эмоджи */
@@ -169,7 +161,6 @@
             color: #fff !important;
             flex: 0 0 auto !important;
             width: auto !important;
-            padding: 11px 18px !important;
             font-size: 20px !important;
         }
         .vkd-btn-folder:hover {
@@ -178,9 +169,7 @@
         }
     `);
 
-    // ═══════════════════════════════════════════════
-    //  🌐  Определение сайта
-    // ═══════════════════════════════════════════════
+    // Определение сайта
     function detectSite() {
         const host = window.location.hostname;
         if (host.includes('superhivemarket.com')) return 'superhive';
@@ -189,9 +178,7 @@
         return null;
     }
 
-    // ═══════════════════════════════════════════════
-    //  🔗  Slug из URL
-    // ═══════════════════════════════════════════════
+    // Slug из URL
     function getSlugFromUrl(site) {
         const path = window.location.pathname;
         if (site === 'superhive') {
@@ -208,9 +195,7 @@
         return null;
     }
 
-    // ═══════════════════════════════════════════════
-    //  ⏳  Ожидание якорного элемента (SPA)
-    // ═══════════════════════════════════════════════
+    // Ожидание якорного элемента (SPA)
     function waitForAnchor(site, timeout = 15000) {
         return new Promise((resolve) => {
             const cfg = SITE_CONFIG[site];
@@ -237,9 +222,7 @@
         });
     }
 
-    // ═══════════════════════════════════════════════
-    //  📌  Вставка блока в DOM
-    // ═══════════════════════════════════════════════
+    // Вставка блока в DOM
     function insertWrapper(anchor, wrapper, insertMode) {
         switch (insertMode) {
             case 'append':
@@ -259,9 +242,23 @@
         }
     }
 
-    // ═══════════════════════════════════════════════
-    //  ☁️  Яндекс Диск — список файлов и скачивание
-    // ═══════════════════════════════════════════════
+    // Ссылка на папку Яндекс Диска (с сервера)
+    function fetchYandexFolderUrl() {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: CONFIG.YANDEX_FOLDER_URL,
+            onload: (res) => {
+                try {
+                    const data = JSON.parse(res.responseText);
+                    if (data.url) {
+                        GM_setValue('yandex_folder_url', data.url);
+                    }
+                } catch(e) {}
+            },
+        });
+    }
+
+    // Яндекс Диск — список файлов и скачивание
 
     /**
      * Получает список всех файлов с Яндекс Диска (с кэшем).
@@ -450,9 +447,7 @@
             .replace(/^-|-$/g, '');
     }
 
-    // ═══════════════════════════════════════════════
-    //  🏗️  Рендер блока
-    // ═══════════════════════════════════════════════
+    // Рендер блока
     function renderBlock(anchor, site, isDon, downloadUrl, slug) {
 
         // Убираем старый блок
@@ -472,17 +467,22 @@
             const row = document.createElement('div');
             row.className = 'vkd-btn-row';
 
-            // Кнопка Открыть папку
+            // Кнопка Открыть папку (всегда показываем)
             const folderPath = GM_getValue(`yadisk_folder_${slug}`, null);
-            if (folderPath) {
-                const yadiskUrl = `https://disk.yandex.ru/client/disk${folderPath}`;
+            const folderBtnUrl = GM_getValue('yandex_folder_url', null);
+
+            if (folderBtnUrl) {
+                const linkUrl = folderPath
+                    ? `https://disk.yandex.ru/client/disk${folderPath}`
+                    : folderBtnUrl;
+
                 const folderBtn = document.createElement('a');
-                folderBtn.href = yadiskUrl;
+                folderBtn.href = linkUrl;
                 folderBtn.target = '_blank';
                 folderBtn.rel = 'noopener noreferrer';
                 folderBtn.className = 'btn btn-lg vkd-btn vkd-btn-folder';
                 folderBtn.textContent = '📂';
-                folderBtn.title = 'Открыть папку на Яндекс Диске';
+                folderBtn.title = folderPath ? 'Открыть папку файла' : 'Открыть папку BLEND ARS';
                 row.appendChild(folderBtn);
             }
 
@@ -550,7 +550,7 @@
             wrapper.appendChild(guestRow);
 
             const loginBtn       = document.createElement('button');
-            loginBtn.className   = 'vkd-btn vkd-btn-outline';
+            loginBtn.className   = 'vkd-btn vkd-btn-outline btn btn-lg';
             loginBtn.textContent = '🔑  Уже спонсор? Войти через VK ID';
 
             loginBtn.onclick = async () => {
@@ -572,9 +572,7 @@
         insertWrapper(anchor, wrapper, SITE_CONFIG[site].insert);
     }
 
-    // ═══════════════════════════════════════════════
-    //  🔐  VKID OAuth 2.1 с PKCE
-    // ═══════════════════════════════════════════════
+    // VKID OAuth 2.1 с PKCE
     async function getVKCode() {
         const { code_verifier, code_challenge } = await generatePKCE();
 
@@ -664,9 +662,7 @@
         });
     }
 
-    // ═══════════════════════════════════════════════
-    //  🚀  Инициализация
-    // ═══════════════════════════════════════════════
+    // Инициализация
     async function init() {
         const site = detectSite();
         if (!site) return;
@@ -683,37 +679,62 @@
         }
         console.log('[VKDonut] 📌 Якорь найден:', anchor);
 
-        // Проверяем кэш авторизации
         const cached = GM_getValue('donut_status', null);
         const time   = GM_getValue('donut_status_time', 0);
         const isDon  = cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS ? cached : false;
 
-        // Проверяем кэш ссылки
         const cacheKey = `yadisk_url_${slug}`;
         const timeKey  = `yadisk_time_${slug}`;
         const cachedUrl = GM_getValue(cacheKey, null);
         const cachedAt  = GM_getValue(timeKey, 0);
         const freshUrl  = cachedUrl && Date.now() - cachedAt < CONFIG.YANDEX_CACHE_MS ? cachedUrl : null;
 
-        // Первый рендер: сразу (с "Сканируем облако..." если нет кэша)
         renderBlock(anchor, site, isDon, freshUrl || 'loading', slug);
 
-        // Фоновая загрузка ссылки если нет кэша
+        // Загружаем ссылку на папку Яндекс Диска (если ещё не в кэше)
+        if (!GM_getValue('yandex_folder_url', null)) {
+            fetchYandexFolderUrl();
+        }
+
         if (!freshUrl && isDon) {
-            const downloadUrl = await getYandexDownloadUrl(slug);
+            const downloadUrl = await findFileWithFallback(slug, null);
             renderBlock(anchor, site, isDon, downloadUrl, slug);
         }
     }
 
     // SPA: следим за сменой URL
     let lastUrl = location.href;
-    new MutationObserver(() => {
+    let urlChangeTimer = null;
+
+    function onUrlChange() {
         if (location.href !== lastUrl) {
             lastUrl = location.href;
             console.log('[VKDonut] 🔄 URL изменился, перезапускаем...');
-            setTimeout(init, 800);
+            document.querySelector('.vkd-wrapper')?.remove();
+
+            // Очищаем предыдущий таймер
+            if (urlChangeTimer) clearTimeout(urlChangeTimer);
+
+            // Ждём пока SPA обновит DOM
+            urlChangeTimer = setTimeout(() => {
+                init();
+            }, 1500);
         }
-    }).observe(document, { subtree: true, childList: true });
+    }
+
+    // Перехват pushState/replaceState
+    const _pushState = history.pushState;
+    const _replaceState = history.replaceState;
+    history.pushState = function() { _pushState.apply(this, arguments); onUrlChange(); };
+    history.replaceState = function() { _replaceState.apply(this, arguments); onUrlChange(); };
+
+    // Popstate (кнопки назад/вперёд)
+    window.addEventListener('popstate', onUrlChange);
+
+    // Перехват кликов по ссылкам
+    document.addEventListener('click', () => {
+        setTimeout(onUrlChange, 300);
+    }, true);
 
     init();
 
