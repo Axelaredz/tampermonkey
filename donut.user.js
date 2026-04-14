@@ -30,7 +30,7 @@
         VK_DONUT_URL        : 'https://vk.com/donut/H360ru',
         YANDEX_DOWNLOAD_URL : 'https://blendars.ru/api/yandex-download',
         YANDEX_FOLDER_URL   : 'https://blendars.ru/api/yandex-folder',
-        CACHE_STATUS_MS     : 72 * 60 * 60 * 1000,  // 3 дня
+        CACHE_STATUS_MS     : 72 * 60 * 60 * 1000,  // 24 часа
         YANDEX_CACHE_MS     : 10 * 60 * 1000,
         YANDEX_LIST_CACHE_MS: 10 * 60 * 1000,  // Кэш списка файлов — 10 мин
     };
@@ -69,7 +69,7 @@
     // СТИЛИ
     GM_addStyle(`
         .vkd-wrapper {
-            margin: 16px 8px;
+            margin: 8px 8px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             animation: vkdFadeIn 0.3s ease;
         }
@@ -110,6 +110,10 @@
             background: #e0e0e0 !important; color:#999 !important;
             cursor:not-allowed !important; pointer-events:none; opacity:.6;
         }
+        .not-active:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
         .vkd-not-don {
             background: linear-gradient(135deg,#fff8f0,#fff3e3);
             border:2px solid #f5c87a; border-radius:.5rem;
@@ -135,37 +139,192 @@
             margin-top: 4px;
         }
 
-        /* Кнопка чата */
-        .vkd-btn-chat {
-            background: linear-gradient(to right, #0077FF, #00AAFF);
-            color: #fff !important;
-        }
-        .vkd-btn-chat:hover { opacity:.90; transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,119,255,.25); }
-
-        /* Ряд двух кнопок */
+        /* Gumroad header: wrapper fills header width */
         .vkd-btn-row {
-            display:flex; gap:5px;
-            margin-bottom:10px;
+            display: flex !important;
+            gap: 8px !important;
+            align-items: center !important;
+            font-weight:bold;
             justify-content: center;
-            align-items: center;
-
         }
-        .vkd-btn-row .vkd-btn {
-            flex:1;
-            font-size:.8rem !important;
+        .vkd-btn-row .vkd-btn:not(.gumroad-btn) {
+            flex: 1 1 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 4px !important;
+            font-size: 0.8rem !important;
+            font-weight: 600 !important;
+            transition: all 0.15s ease !important;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15) !important;
+            transform: translateY(0) !important;
+            cursor: pointer !important;
+            line-height: 1.2 !important;
+        }
+        .vkd-btn-row .vkd-btn .vkd-btn-icon {
+            font-size: 2em !important;
+            line-height: 1 !important;
         }
 
-        /* Кнопка папки — компактная, только эмоджи */
+        /* Hover — приподнять кнопку (только не-Gumroad) */
+        .vkd-btn-row .vkd-btn:not(.gumroad-btn):hover {
+            transform: translateY(-3px) !important;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        /* Active — эффект нажатия (только не-Gumroad) */
+        .vkd-btn-row .vkd-btn:not(.gumroad-btn):active {
+            transform: translateY(1px) !important;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* Disabled — отключаем hover (только не-Gumroad) */
+        .vkd-btn-row .vkd-btn:not(.gumroad-btn).not-active:hover,
+        .vkd-btn-row .vkd-btn:not(.gumroad-btn).vkd-btn-disabled:hover {
+            transform: none !important;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.1) !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Кнопка папки */
         .vkd-btn-folder {
-            background: linear-gradient(to right, #4CAF50, #66BB6A);
-            color: #fff !important;
             flex: 0 0 auto !important;
-            width: auto !important;
-            font-size: 20px !important;
+            min-width: auto !important;
+            max-width: 120px !important;
         }
-        .vkd-btn-folder:hover {
-            opacity:.90; transform:translateY(-1px);
-            box-shadow:0 4px 14px rgba(76,175,80,.3);
+
+        .vkd-btn-row{
+            display: flex !important;
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+            align-items: stretch !important;
+            margin-bottom: .5rem;
+            text-transform: uppercase;
+            text-shadow: 1px 1px #00000082;
+        }
+        @media (min-width: 768px) {
+            .vkd-btn-row{
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+            }
+        }
+        .vkd-btn-row .vkd-btn-folder {
+            justify-self: start !important;
+        }
+
+        /* Gumroad button base styles */
+        .gumroad-btn {
+            cursor: pointer !important;
+            text-align: center !important;
+            font: inherit !important;
+            font-size: 0.875rem !important;
+            line-height: 1.375 !important;
+            border: none !important;
+            text-decoration: none !important;
+            display: flex !important;
+            flex-direction: row !important;
+            border-radius: 0.5rem !important;
+            padding: 1rem !important;
+            transition: all 0.15s ease !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0.25rem 0.25rem 0 currentColor !important;
+            transform: translate(0, 0) !important;
+        }
+        .gumroad-btn .vkd-btn-icon {
+            font-size: 1.3em !important;
+            line-height: 1 !important;
+            flex-shrink: 0 !important;
+            margin-right: .25rem;
+        }
+
+        /* Hover — поднимаем кнопку и усиливаем тень */
+        .gumroad-btn:hover {
+            transform: translate(-0.25rem, -0.25rem) !important;
+            box-shadow: 0.5rem 0.5rem 0 currentColor !important;
+        }
+
+        /* Active — возвращаем на место */
+        .gumroad-btn:active {
+            transform: translate(0, 0) !important;
+            box-shadow: 0.125rem 0.125rem 0 currentColor !important;
+        }
+
+        /* Disabled — отключаем hover */
+        .gumroad-btn.not-active:hover,
+        .gumroad-btn.vkd-btn-disabled:hover {
+            transform: none !important;
+            box-shadow: 0.25rem 0.25rem 0 currentColor !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Специальные кнопки на Gumroad — сохраняем градиенты + добавляем тень */
+        .gumroad-btn.vkd-btn-gold,
+        .vkd-btn-row .vkd-btn-gold {
+            background: linear-gradient(to right, #b85e00, #f5a623) !important;
+            color: #fff !important;
+        }
+        .gumroad-btn.vkd-btn-gold:hover,
+        .vkd-btn-row .vkd-btn-gold:hover {
+            box-shadow: 0 6px 16px rgba(245, 166, 35, 0.4) !important;
+        }
+
+        .gumroad-btn.vkd-btn-chat,
+        .vkd-btn-row .vkd-btn-chat {
+            background: linear-gradient(to right, #0077FF, #00AAFF) !important;
+            color: #fff !important;
+        }
+        .gumroad-btn.vkd-btn-chat:hover,
+        .vkd-btn-row .vkd-btn-chat:hover {
+            box-shadow: 0 6px 16px rgba(0, 119, 255, 0.35) !important;
+        }
+
+        .gumroad-btn.vkd-btn-folder,
+        .vkd-btn-row .vkd-btn-folder {
+            background: linear-gradient(to right, #4CAF50, #66BB6A) !important;
+            color: #fff !important;
+        }
+        .gumroad-btn.vkd-btn-folder:hover,
+        .vkd-btn-row .vkd-btn-folder:hover {
+            box-shadow: 0 6px 16px rgba(76, 175, 80, 0.35) !important;
+        }
+
+        .gumroad-btn.vkd-btn-donut,
+        .vkd-btn-row .vkd-btn-donut {
+            background: linear-gradient(to right, #b85e00, #f5a623) !important;
+            color: #fff !important;
+        }
+        .gumroad-btn.vkd-btn-donut:hover,
+        .vkd-btn-row .vkd-btn-donut:hover {
+            box-shadow: 0 6px 16px rgba(245, 166, 35, 0.4) !important;
+        }
+
+        .gumroad-btn.vkd-btn-outline,
+        .vkd-btn-row .vkd-btn-outline {
+            background: transparent !important;
+            color: #3a7ef6 !important;
+            border: 2px solid #3a7ef6 !important;
+            box-shadow: 0 3px 0 rgba(58, 126, 246, 0.2) !important;
+        }
+        .gumroad-btn.vkd-btn-outline:hover,
+        .vkd-btn-row .vkd-btn-outline:hover {
+            background: #f0f5ff !important;
+            box-shadow: 0 6px 16px rgba(58, 126, 246, 0.25) !important;
+        }
+
+        /* Disabled кнопки */
+        .gumroad-btn.vkd-btn-disabled,
+        .vkd-btn-row .vkd-btn-disabled {
+            background: #e0e0e0 !important;
+            color: #999 !important;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+        .gumroad-btn.vkd-btn-disabled:hover,
+        .vkd-btn-row .vkd-btn-disabled:hover,
+        .gumroad-btn.not-active:hover,
+        .vkd-btn-row .not-active:hover {
+            transform: none !important;
+            cursor: not-allowed !important;
         }
     `);
 
@@ -283,15 +442,22 @@
                 method : 'GET',
                 url    : `${CONFIG.YANDEX_DOWNLOAD_URL.replace('yandex-download', 'yandex-list')}`,
                 onload : (res) => {
+                    console.log(`[VKDonut] 📨 Ответ сервера: ${res.status}, длина: ${res.responseText.length}`);
                     try {
                         const data = JSON.parse(res.responseText);
                         const files = data.files || [];
+                        console.log(`[VKDonut] 📊 Файлов получено: ${files.length}`);
+                        if (files.length > 0) {
+                            console.log(`[VKDonut] 📁 Первый файл: ${files[0].name}`);
+                            console.log(`[VKDonut] 📁 Последний файл: ${files[files.length - 1].name}`);
+                        }
                         GM_setValue(cacheKey, files);
                         GM_setValue(timeKey, Date.now());
-                        console.log(`[VKDonut] ✅ Получено ${files.length} файлов с Яндекс Диска`);
+                        console.log(`[VKDonut] ✅ Кэш списка обновлён: ${files.length} файлов`);
                         resolve(files);
                     } catch(e) {
                         console.error('[VKDonut] Ошибка парсинга списка:', e);
+                        console.error('[VKDonut] Raw ответ:', res.responseText.substring(0, 200));
                         resolve([]);
                     }
                 },
@@ -309,7 +475,12 @@
      */
     function getYandexDownloadUrl(slug) {
         return new Promise((resolve) => {
-            if (!slug) return resolve(null);
+            console.log(`[VKDonut] 🔗 getYandexDownloadUrl вызвана для slug: "${slug}"`);
+
+            if (!slug) {
+                console.warn('[VKDonut] ⚠️ Slug пустой!');
+                return resolve(null);
+            }
 
             // Кэш готовой ссылки (для уже найденных файлов)
             const cacheKey  = `yadisk_url_${slug}`;
@@ -327,8 +498,11 @@
             const listTime   = GM_getValue('yandex_file_list_time', 0);
             const listFresh  = cachedList && Date.now() - listTime < CONFIG.YANDEX_LIST_CACHE_MS;
 
-            if (listFresh && cachedList.length > 0) {
+            console.log(`[VKDonut] 📦 Кэш списка: ${cachedList ? cachedList.length + ' файлов' : 'НЕТ'}, свежий: ${listFresh}`);
+
+            if (listFresh && cachedList && cachedList.length > 0) {
                 const normalized = normalizeSlug(slug);
+                console.log(`[VKDonut] 🔎 Нормализованный slug: "${normalized}"`);
                 const found = findFileBySlug(cachedList, normalized);
 
                 if (found) {
@@ -341,20 +515,24 @@
             }
 
             // Кэш списка устарел или пуст — сначала обновим его
+            console.log('[VKDonut] 🔄 Кэш списка устарел, запрашиваем новый...');
             getYandexFileList().then(files => {
                 if (!files || files.length === 0) {
                     console.warn('[VKDonut] ⚠️ Список файлов пуст');
                     return resolve(null);
                 }
 
+                console.log(`[VKDonut] ✅ Получено ${files.length} файлов`);
                 const normalized = normalizeSlug(slug);
+                console.log(`[VKDonut] 🔎 Нормализованный slug: "${normalized}"`);
                 const found = findFileBySlug(files, normalized);
 
                 if (found) {
                     console.log(`[VKDonut] ☁️ Найдено: "${found.name}"`);
+                    console.log(`[VKDonut] 📍 Path: "${found.path}"`);
                     fetchDownloadUrl(found.path, slug, resolve);
                 } else {
-                    console.warn(`[VKDonut] ⚠️ Файл не найден: "${slug}" (${files.length} файлов в списке)`);
+                    console.warn(`[VKDonut] ⚠️ Не найден: "${slug}" (${files.length} файлов в списке)`);
                     resolve(null);
                 }
             });
@@ -368,6 +546,8 @@
      * 3. Slug содержится в имени файла
      */
     function findFileBySlug(files, slug) {
+        console.log(`[VKDonut] 🔎 findFileBySlug: ищем "${slug}" в ${files.length} файлах`);
+
         let bestMatch = null;
         let bestScore = 0;
 
@@ -376,18 +556,28 @@
 
             if (f.slug === slug) {
                 score = 100;
+                console.log(`[VKDonut]    ✅ ТОЧНОЕ совпадение: "${f.slug}"`);
             } else if (f.slug.startsWith(slug + '-') || f.slug.startsWith(slug + '_')) {
                 score = 90;
+                console.log(`[VKDonut]    🟡 Начало с slug: "${f.slug}" (score: ${score})`);
             } else if (f.slug.startsWith(slug)) {
                 score = 80;
+                console.log(`[VKDonut]    🟠 Начинается с slug: "${f.slug}" (score: ${score})`);
             } else if (f.slug.includes(slug)) {
                 score = 60;
+                console.log(`[VKDonut]    🔵 Содержит slug: "${f.slug}" (score: ${score})`);
             }
 
             if (score > bestScore) {
                 bestScore = score;
                 bestMatch = f;
             }
+        }
+
+        if (bestMatch) {
+            console.log(`[VKDonut] 🏆 Лучший результат: "${bestMatch.name}" (score: ${bestScore})`);
+        } else {
+            console.log(`[VKDonut] ❌ Ничего не найдено`);
         }
 
         return bestScore > 0 ? bestMatch : null;
@@ -456,6 +646,15 @@
         const wrapper     = document.createElement('div');
         wrapper.className = 'vkd-wrapper';
 
+        // Определяем классы в зависимости от сайта
+        const isGumroad = site === 'gumroad';
+        const btnBaseClass = isGumroad
+            ? 'gumroad-btn'
+            : 'btn btn-lg vkd-btn';
+        const containerClass = isGumroad
+            ? 'vkd-btn-row'
+            : 'vkd-btn-row';
+
         // ── Разделитель ──────────────────────────────────────
         const divider       = document.createElement('div');
         divider.className   = 'vkd-divider';
@@ -465,7 +664,7 @@
         if (isDon) {
             // ── Вид спонсора ─────────────────────────────────
             const row = document.createElement('div');
-            row.className = 'vkd-btn-row';
+            row.className = containerClass;
 
             // Кнопка Открыть папку (всегда показываем)
             const folderPath = GM_getValue(`yadisk_folder_${slug}`, null);
@@ -480,27 +679,27 @@
                 folderBtn.href = linkUrl;
                 folderBtn.target = '_blank';
                 folderBtn.rel = 'noopener noreferrer';
-                folderBtn.className = 'btn btn-lg vkd-btn vkd-btn-folder';
-                folderBtn.textContent = '📂';
+                folderBtn.className = `${btnBaseClass} vkd-btn-folder`;
+                folderBtn.innerHTML = '<span class="vkd-btn-icon">📂</span><span>ФАЙЛЫ</span>';
                 folderBtn.title = folderPath ? 'Открыть папку файла' : 'Открыть папку BLEND ARS';
                 row.appendChild(folderBtn);
             }
 
             // Кнопка Скачать
             const dlBtn = document.createElement('a');
-            dlBtn.className = 'btn btn-lg vkd-btn vkd-btn-gold';
+            dlBtn.className = `${btnBaseClass} vkd-btn-gold`;
 
             if (downloadUrl === 'loading') {
-                dlBtn.className += ' vkd-btn-disabled';
-                dlBtn.textContent = '⏳  Сканируем облако...';
+                dlBtn.className += ' vkd-btn-disabled not-active';
+                dlBtn.innerHTML = '<span class="vkd-btn-icon">⏳</span><span>Сканируем облако...</span>';
             } else if (downloadUrl) {
                 dlBtn.href        = downloadUrl;
                 dlBtn.target      = '_blank';
                 dlBtn.rel         = 'noopener noreferrer';
-                dlBtn.textContent = '⬇️ СКАЧАТЬ';
+                dlBtn.innerHTML = '<span class="vkd-btn-icon">⬇️</span><span>СКАЧАТЬ</span>';
             } else {
-                dlBtn.className  += ' vkd-btn-disabled';
-                dlBtn.textContent = '⏳  Файл не найден';
+                dlBtn.className  += ' vkd-btn-disabled not-active';
+                dlBtn.innerHTML = '<span class="vkd-btn-icon">🥲</span><span>Не найден</span>';
             }
             row.appendChild(dlBtn);
 
@@ -510,8 +709,8 @@
             chatBtn.href = chatUrl;
             chatBtn.target = '_blank';
             chatBtn.rel = 'noopener noreferrer';
-            chatBtn.className = 'btn btn-lg vkd-btn vkd-btn-chat';
-            chatBtn.textContent = '💬 НАШ ЧАТ';
+            chatBtn.className = `${btnBaseClass} vkd-btn-chat`;
+            chatBtn.innerHTML = '<span class="vkd-btn-icon">💬</span><span>ЧАТ</span>';
             row.appendChild(chatBtn);
 
             wrapper.appendChild(row);
@@ -528,14 +727,14 @@
 
             // Ряд: Стать спонсором + Чат
             const guestRow = document.createElement('div');
-            guestRow.className = 'vkd-btn-row';
+            guestRow.className = containerClass;
 
             const becomeBtn = document.createElement('a');
             becomeBtn.href = CONFIG.VK_DONUT_URL;
             becomeBtn.target = '_blank';
             becomeBtn.rel = 'noopener noreferrer';
-            becomeBtn.className = 'btn vkd-btn vkd-btn-donut btn-lg';
-            becomeBtn.textContent = '🍩  Стать спонсором';
+            becomeBtn.className = `${btnBaseClass} vkd-btn-donut`;
+            becomeBtn.innerHTML = '<span class="vkd-btn-icon">🍩</span><span>Стать спонсором</span>';
             guestRow.appendChild(becomeBtn);
 
             const chatUrl = 'https://vk.me/join/5qTBf/9QOVzb56xnH0e87EM08Kll2qAG_JY=';
@@ -543,15 +742,17 @@
             chatBtn.href = chatUrl;
             chatBtn.target = '_blank';
             chatBtn.rel = 'noopener noreferrer';
-            chatBtn.className = 'btn vkd-btn vkd-btn-chat btn-lg';
-            chatBtn.textContent = '💬  Наш чат';
+            chatBtn.className = `${btnBaseClass} vkd-btn-chat`;
+            chatBtn.innerHTML = '<span class="vkd-btn-icon">💬</span><span>Наш чат</span>';
             guestRow.appendChild(chatBtn);
 
             wrapper.appendChild(guestRow);
 
             const loginBtn       = document.createElement('button');
-            loginBtn.className   = 'vkd-btn vkd-btn-outline btn btn-lg';
-            loginBtn.textContent = '🔑  Уже спонсор? Войти через VK ID';
+            loginBtn.className   = isGumroad
+                ? `${btnBaseClass} vkd-btn-outline`
+                : 'vkd-btn vkd-btn-outline btn btn-lg';
+            loginBtn.innerHTML = '<span class="vkd-btn-icon">🔑</span><span>Уже спонсор? Войти через VK ID</span>';
 
             loginBtn.onclick = async () => {
                 loginBtn.innerHTML = '<span class="vkd-spinner"></span>&nbsp; Проверяем...';
@@ -683,6 +884,8 @@
         const time   = GM_getValue('donut_status_time', 0);
         const isDon  = cached !== null && Date.now() - time < CONFIG.CACHE_STATUS_MS ? cached : false;
 
+        console.log(`[VKDonut] 🔑 Статус доната: isDon=${isDon} (кэш: ${cached !== null ? 'есть' : 'нет'}, возраст: ${Math.round((Date.now() - time) / 1000 / 60 / 60)}ч)`);
+
         const cacheKey = `yadisk_url_${slug}`;
         const timeKey  = `yadisk_time_${slug}`;
         const cachedUrl = GM_getValue(cacheKey, null);
@@ -697,7 +900,13 @@
         }
 
         if (!freshUrl && isDon) {
-            const downloadUrl = await findFileWithFallback(slug, null);
+            console.log(`[VKDonut] 🔍 Ищем файл: "${slug}"...`);
+            const downloadUrl = await getYandexDownloadUrl(slug);
+            if (downloadUrl) {
+                console.log(`[VKDonut] ✅ Ссылка найдена, обновляем кнопку...`);
+            } else {
+                console.warn(`[VKDonut] ⚠️ Ссылка не найдена для: "${slug}"`);
+            }
             renderBlock(anchor, site, isDon, downloadUrl, slug);
         }
     }
